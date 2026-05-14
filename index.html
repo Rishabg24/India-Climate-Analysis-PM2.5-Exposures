@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>India Air Quality Analysis</title>
+
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- ═══════════════════════════════════════
+             TOP NAV
+        ════════════════════════════════════════ -->
+        <nav id="top-nav">
+            <div class="nav-brand">
+                <span class="nav-title">India Climate Analysis</span>
+            </div>
+
+            <div></div><!-- centre column kept for grid alignment -->
+
+            <div class="nav-end">
+                <span class="nav-dataset-tag">Air Quality · 2013–2021</span>
+            </div>
+        </nav>
+
+        <div id="main-content">
+
+            <!-- ═══════════════════════════════════════
+                 LEFT PANEL — controls
+            ════════════════════════════════════════ -->
+            <aside id="controls">
+                <div class="controls-header">
+                    <h2>Climate Data Explorer</h2>
+                    <p class="subtitle">India PM2.5 Analysis 2013–2021</p>
+                </div>
+
+                <!-- ─── PM2.5 CONTROLS ─── -->
+                <div class="control-section">
+                    <h3>Select Years</h3>
+                    <div class="checkbox-grid">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2013">
+                            <span class="checkbox-text">2013</span>
+                            <span class="year-note">Dec</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2014">
+                            <span class="checkbox-text">2014</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2015">
+                            <span class="checkbox-text">2015</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2016">
+                            <span class="checkbox-text">2016</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2017">
+                            <span class="checkbox-text">2017</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2018">
+                            <span class="checkbox-text">2018</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2019">
+                            <span class="checkbox-text">2019</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2020">
+                            <span class="checkbox-text">2020</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="pm25-year-checkbox" value="2021">
+                            <span class="checkbox-text">2021</span>
+                            <span class="year-note">Jan–Apr</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="instructions">
+                        <p>Select one or more years to load PM2.5 data. Use the slider below and your
+                            left and right arrow keys to explore daily air quality patterns, or press Play to animate.</p>
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- ═══════════════════════════════════════
+                 CENTER — map
+            ════════════════════════════════════════ -->
+            <main id="map-container">
+                <div id="map-header">
+                    <h1 id="current-map-title">PM2.5 Air Quality</h1>
+                    <p id="map-subtitle">Select years and use the slider to explore daily air quality patterns</p>
+                </div>
+                <div id="map">
+                    <!-- D3 SVG will be created here -->
+                </div>
+                <div id="loading-overlay">
+                    <div class="spinner"></div>
+                    <p class="loading-text">Loading data...</p>
+                </div>
+            </main>
+
+            <!-- ═══════════════════════════════════════
+                 RIGHT PANEL — legends
+            ════════════════════════════════════════ -->
+            <aside id="legends">
+
+                <div class="legends-header">
+                    <h3>PM2.5 Concentration</h3>
+                    <p class="legends-subhead">µg/m³ (micrograms per cubic meter)</p>
+                </div>
+
+                <div class="legend-box">
+                    <h4>PM2.5 Concentration Scale</h4>
+                    <div class="legend-gradient pm25-gradient"></div>
+                    <div class="legend-labels pm25-scale-labels">
+                        <span>0</span>
+                        <span>35</span>
+                        <span>75</span>
+                        <span>110</span>
+                        <span>150+</span>
+                    </div>
+                </div>
+
+                <div class="legend-box">
+                    <div class="who-note">
+                        <p class="who-label">WHO 2021 Guideline</p>
+                        <p class="who-value">Annual mean: <strong>5 µg/m³</strong></p>
+                        <p class="who-value">24-hr mean: <strong>15 µg/m³</strong></p>
+                    </div>
+                </div>
+
+                <!-- ─── ALWAYS VISIBLE ─── -->
+                <div class="legend-box">
+                    <h4>No Data</h4>
+                    <div class="legend-item-row">
+                        <span class="legend-color-box no-data"></span>
+                        <span class="legend-text">Missing data</span>
+                    </div>
+                </div>
+
+                <div class="legend-box">
+                    <button id="play-btn" disabled>▶ Play</button>
+                </div>
+
+                <div class="Data-loading-note">
+                    <div class="loading-note">
+                        <p>Note: Please allow up to 5 minutes for all the data to load.</p>
+                    </div>
+                </div>
+
+            </aside>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════
+             BOTTOM — date slider
+        ════════════════════════════════════════ -->
+        <div id="slider-section">
+            <div id="date-display">
+                <span id="current-date">Select years to begin</span>
+            </div>
+            <div id="slider-controls">
+                <input type="range" id="date-slider" min="0" max="0" value="0" disabled>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Custom JS -->
+    <script src="script.js"></script>
+
+</body>
+
+</html>
