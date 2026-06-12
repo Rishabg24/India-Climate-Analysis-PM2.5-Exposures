@@ -1069,8 +1069,7 @@ button {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PASTE THIS ENTIRE BLOCK at the END of style.css
-   (before the closing @media queries if you prefer, but end is fine)
+ RADIAL CLOCK
 ════════════════════════════════════════════════════════════════ */
 
 /* ── Radial Clock Island ─────────────────────────────────────── */
@@ -1125,8 +1124,8 @@ button {
 
 .clock-subtitle {
     font-family: var(--font-mono);
-    font-size: 9.5px;
-    color: var(--amber);
+    font-size: 12px;
+    color: #ffff;/*var(--amber);*/
     letter-spacing: 0.3px;
 }
 
@@ -1254,8 +1253,10 @@ button {
 /* ── Info popover ────────────────────────────────────────────── */
 .clock-info-popover {
     position: absolute;
-    bottom: calc(100% + 10px);
-    left: 0;
+    left: calc(100% + 10px);
+    top: 0;
+    bottom: auto;
+    height: 100%;
     width: 270px;
     background: var(--bg-elevated);
     border: 1px solid var(--bg-border-l);
@@ -1263,6 +1264,7 @@ button {
     padding: 14px 16px;
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
     z-index: 200;
+    overflow-y: auto;
 
     /* Hidden by default */
     opacity: 0;
@@ -1328,8 +1330,9 @@ button {
 /* ── Hover tooltip ───────────────────────────────────────────── */
 .clock-tooltip {
     position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
+    left: calc(100% + 70px);
+    top: 0;
+    bottom: auto;
     transform: translateX(-50%);
     display: flex;
     flex-direction: column;
@@ -1371,6 +1374,94 @@ button {
 /* ── Responsive: hide clock on very small screens ────────────── */
 @media (max-width: 640px) {
     .radial-clock-island {
+        display: none;
+    }
+}
+
+
+/* ── Position: sits above the median clock ────────── */
+.iqr-clock-island {
+    left: 24px;
+    bottom: 280px; /* Height of median clock + gap, positioned above */
+}
+
+/* ── IQR SVG canvas ──────────────────────────────────────────── */
+#iqr-clock-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: crosshair;
+    overflow: visible;
+}
+
+/* ── Trail arc — sky accent ──────────────────────────────────── */
+.iqr-trail-arc {
+    fill: none;
+    stroke: rgba(126, 184, 212, 0.22);
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.15s linear;
+}
+
+/* ── Needle — sky accent ─────────────────────────────────────── */
+.iqr-needle-line {
+    stroke: var(--sky);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 3px rgba(126, 184, 212, 0.7));
+    pointer-events: none;
+}
+
+.iqr-needle-dot {
+    fill: var(--sky);
+    filter: drop-shadow(0 0 4px rgba(126, 184, 212, 0.9));
+    pointer-events: none;
+}
+
+/* ── Centre Q1 / Q3 small labels ─────────────────────────────── */
+.iqr-center-qval {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    fill: var(--text-2);
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    letter-spacing: 0.2px;
+}
+
+/* ── Centre IQR main value — sky accent ──────────────────────── */
+.iqr-center-iqr-val {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: bold;
+    fill: var(--sky);
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+}
+
+/* ── Header subtitle — sky accent ────────────────────────────── */
+.iqr-subtitle {
+    color: #ffff;
+}
+
+/* ── Tooltip value rows ───────────────────────────────────────── */
+.iqr-ct-row {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--sky);
+    letter-spacing: 0.3px;
+}
+
+.iqr-ct-main {
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+/* ── Responsive: hide IQR clock on mid/small screens ────────── */
+@media (max-width: 900px) {
+    .iqr-clock-island {
         display: none;
     }
 }

@@ -227,7 +227,7 @@
                         <div class="cip-title">Seasonal Pollution Rhythm</div>
                         <p class="cip-body">
                             A full year (Jan → Dec) arranged in a ring. Each thin bar represents one
-                            calendar day; bar height and color encode the spatial mean PM₂.₅
+                            calendar day; bar height and color encode the spatial median PM₂.₅
                             across all loaded clusters for that day-of-year (averaged across
                             multiple years if several are selected).
                         </p>
@@ -244,7 +244,7 @@
 
                     <!-- Header -->
                     <div class="clock-header">
-                        <span class="clock-title">Daily Average</span>
+                        <span class="clock-title">Daily Median</span>
                         <span class="clock-subtitle" id="clock-doy-label">—</span>
                     </div>
 
@@ -260,6 +260,58 @@
                     <div class="clock-tooltip" id="clock-tooltip" aria-hidden="true">
                         <span class="ct-date" id="ct-date">—</span>
                         <span class="ct-val" id="ct-val">—</span>
+                    </div>
+
+                </div>
+
+                <!-- ─── IQR Spread Clock ──────────────────────────────────────────── -->
+                <div class="radial-clock-island iqr-clock-island" id="iqr-clock-wrap">
+
+                    <button class="clock-info-btn" id="iqr-info-btn" aria-label="About this chart">
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                            <circle cx="6.5" cy="6.5" r="5.75" stroke="currentColor" stroke-width="1.2" />
+                            <path d="M6.5 5.8v3.9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                            <circle cx="6.5" cy="4.1" r="0.7" fill="currentColor" />
+                        </svg>
+                    </button>
+
+                    <div class="clock-info-popover" id="iqr-info-popover" role="tooltip" aria-hidden="true">
+                        <div class="cip-title">Spatial Spread — IQR</div>
+                        <p class="cip-body">
+                            A full year arranged as a ring. Each bar encodes the interquartile
+                            range (IQR = Q3 − Q1) of PM₂.₅ across all loaded clusters for that
+                            day-of-year, revealing how spatially heterogeneous pollution is
+                            across India's regions.
+                        </p>
+                        <ul class="cip-list">
+                            <li><span class="cip-dot" style="background:var(--sky)"></span>Needle = current date</li>
+                            <li><span class="cip-dot" style="background:rgba(126,184,212,0.22)"></span>Filled arc =
+                                elapsed days</li>
+                            <li><span class="cip-dot" style="background:#4a9aba"></span>Short bar = uniform across
+                                regions</li>
+                            <li><span class="cip-dot" style="background:#E65C17"></span>Tall bar = high regional variation
+                            </li>
+                        </ul>
+                        <p class="cip-note">Hover for daily Q1 / IQR / Q3 values.</p>
+                    </div>
+
+                    <div class="clock-header">
+                        <span class="clock-title">Daily IQR</span>
+                        <span class="clock-subtitle iqr-subtitle" id="iqr-doy-label">—</span>
+                    </div>
+
+                    <div class="clock-canvas-wrap">
+                        <svg id="iqr-clock-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg"
+                            aria-label="PM2.5 IQR radial chart">
+                            <!-- Rendered entirely by JS -->
+                        </svg>
+                    </div>
+
+                    <div class="clock-tooltip" id="iqr-tooltip" aria-hidden="true">
+                        <span class="ct-date" id="iqr-ct-date">—</span>
+                        <span class="iqr-ct-row" id="iqr-ct-q1">Q1 —</span>
+                        <span class="iqr-ct-row iqr-ct-main" id="iqr-ct-iqr">IQR —</span>
+                        <span class="iqr-ct-row" id="iqr-ct-q3">Q3 —</span>
                     </div>
 
                 </div>

@@ -543,37 +543,56 @@ function stepDate(dir) {
 // ============================================
 // STAT COUNTERS ANIMATION
 // ============================================
+
 function animateStatCounters() {
     const statNumbers = document.querySelectorAll('.stat-number');
     if (statNumbers.length < 3) return;
 
     const targets = [
-        { element: statNumbers[0], target: 2700, suffix: '' },           // Continuous Sat-Data
-        { element: statNumbers[1], target: 30000, suffix: '+' },         // Regional Micro-Clusters
-        { element: statNumbers[2], target: 100, suffix: '%' }            // Subcontinent Coverage
+        { element: statNumbers[0], target: 2700, suffix: '+' },
+        { element: statNumbers[1], target: 30000, suffix: '+' },
+        { element: statNumbers[2], target: 100, suffix: '%' }
     ];
 
-    const duration = 2500; // 1.5 seconds
+    const duration = 2500;
     const startTime = performance.now();
 
     function updateCounters(currentTime) {
         const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
+        const linearProgress = Math.min(elapsed / duration, 1);
+
+        let progress;
+
+        if (linearProgress < 0.7) {
+            // Reach 90% quickly
+            progress = (linearProgress / 0.7) * 0.9;
+        } else {
+            // Crawl through final 10%
+            const t = (linearProgress - 0.7) / 0.3;
+            const crawl = 1 - Math.pow(1 - t, 13);
+            progress = 0.9 + crawl * 0.1;
+        }
 
         targets.forEach(({ element, target, suffix }) => {
             const current = Math.floor(target * progress);
-            // Format with commas for large numbers
-            const formatted = current.toLocaleString();
-            element.textContent = formatted + suffix;
+            element.textContent =
+                current.toLocaleString() + suffix;
         });
 
-        if (progress < 1) {
+        if (linearProgress < 1) {
             requestAnimationFrame(updateCounters);
+        } else {
+            targets.forEach(({ element, target, suffix }) => {
+                element.textContent =
+                    target.toLocaleString() + suffix;
+            });
         }
     }
 
     requestAnimationFrame(updateCounters);
 }
+
+
 
 // ============================================
 // UI WIRING (DROPDOWNS & CONTROLS)
@@ -903,20 +922,26 @@ function initClock() {
     });
 
     // ── 6. Centre readout ───────────────────────────────────────────────────
+    // Pinned exactly at the geometric center (110, 110)
+    
+    // "Avg:" label sits slightly higher (-18px from center)
     clockState.centerLabel = clockState.svg.append('text')
-        .attr('x', CLOCK.CX).attr('y', CLOCK.CY - 23)
+        .attr('x', CLOCK.CX)
+        .attr('y', CLOCK.CY )
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'central')
         .attr('class', 'rc-center-label')
         .text('Avg:');
 
+    // Main changing data number sits exactly at the geometric center (0px offset)
     clockState.centerVal = clockState.svg.append('text')
-        .attr('x', CLOCK.CX).attr('y', CLOCK.CY - 7)
+        .attr('x', CLOCK.CX)
+        .attr('y', CLOCK.CY) // +2px tweak optical adjustment for font baseline
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'central')
         .attr('class', 'rc-center-val')
+        .style('font-weight', '700')
         .text('—');
-
-    clockState.centerUnit = clockState.svg.append('text')
-        .attr('x', CLOCK.CX).attr('y', CLOCK.CY + 8)
-        .attr('class', 'rc-center-unit')
-        .text('µg/m³');
 
     // ── 7. Needle (drawn last so it's always on top) ────────────────────────
     clockState.needleLine = clockState.svg.append('line')
@@ -1210,3 +1235,447 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ── Also call clockRebuildMeans when year-select-all / clear-all fires ── */
 //   These buttons dispatch 'change' events on the checkboxes, so the patched
 //   handler above already covers them. Nothing extra needed.
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   IQR RADIAL SPREAD CLOCK  +  MEDIAN OVERRIDE FOR SEASONAL CLOCK
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── IQR colour scale: sky-blue (uniform) → amber → deep-red (extreme) ──── */
+const IQR_COLOR_SCALE = d3.scaleLinear()
+    .domain([0, 12, 30, 60, 100])
+    .range([
+        '#4a9aba',  // very uniform across regions
+        '#7eb8d4',  // mild spread
+        '#d4a853',  // moderate spread
+        '#E65C17',  // high spread
+        '#8A1C1C',  // extreme spread
+    ])
+    .clamp(true);
+
+/* ── IQR widget state ────────────────────────────────────────────────────── */
+const iqrState = {
+    svg:        null,
+    barGroup:   null,
+    trailArc:   null,
+    needleLine: null,
+    needleDot:  null,
+    centerQ1:   null,   // D3 text selection
+    centerIQR:  null,
+    centerQ3:   null,
+
+    dayQ1:  new Float32Array(365).fill(NaN),
+    dayQ3:  new Float32Array(365).fill(NaN),
+    dayIQR: new Float32Array(365).fill(NaN),
+    maxIQR: 1,
+    built:  false,
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMBINED REBUILD — median + IQR for all 365 DOYs, one histogram pass
+   ─────────────────────────────────────────────────────────────────────────
+   For each date we build a 300-bucket histogram over [0, 150] µg/m³
+   and read the P25 / P50 / P75 percentiles directly — O(nClusters) per date,
+   no sorting. Per-doy stats are then averaged across all loaded years.
+═══════════════════════════════════════════════════════════════════════════ */
+function rebuildAllClockStats() {
+    const NBUCKETS  = 300;                // ~0.5 µg/m³ resolution
+    const BSCALE    = NBUCKETS / 150;     // value → bucket index
+
+    const medSums   = new Float64Array(365).fill(0);
+    const q1Sums    = new Float64Array(365).fill(0);
+    const q3Sums    = new Float64Array(365).fill(0);
+    const iqrSums   = new Float64Array(365).fill(0);
+    const dayCounts = new Uint16Array(365).fill(0);
+
+    const yearData  = state.loadedPM25YearData;
+    const meta      = state.clusterMeta;
+
+    /* reset both widgets if there's nothing to compute */
+    function zeroOut() {
+        clockState.dayMeans = new Float32Array(365).fill(NaN);
+        clockState.maxMean  = 1;
+        iqrState.dayQ1  = new Float32Array(365).fill(NaN);
+        iqrState.dayQ3  = new Float32Array(365).fill(NaN);
+        iqrState.dayIQR = new Float32Array(365).fill(NaN);
+        iqrState.maxIQR = 1;
+        clockRedrawBars();
+        if (iqrState.built) iqrRedrawBars();
+    }
+
+    if (!meta || meta.length === 0) { zeroOut(); return; }
+
+    const nClusters = meta.length;
+    const buckets   = new Uint32Array(NBUCKETS + 1);  // reused each date
+
+    for (const year in yearData) {
+        const yd = yearData[year];
+        if (!yd || !yd.dates || !yd.pm25) continue;
+
+        yd.dates.forEach((dateStr, localIdx) => {
+            const doy = dateToDOY(dateStr);
+            if (doy < 0 || doy > 364) return;
+
+            /* ── fill histogram for this date ───────────────────────────── */
+            buckets.fill(0);
+            let totalN = 0;
+
+            for (let c = 0; c < nClusters; c++) {
+                const clId = meta[c].clusterId;
+                const vals = yd.pm25[clId];
+                if (!vals) continue;
+                const v = vals[localIdx];
+                if (v !== null && v !== undefined && !isNaN(v) && v >= 0) {
+                    const b = Math.min(Math.floor(v * BSCALE), NBUCKETS);
+                    buckets[b]++;
+                    totalN++;
+                }
+            }
+
+            if (totalN === 0) return;
+
+            /* ── read P25 / P50 / P75 from histogram ────────────────────── */
+            const t25 = totalN * 0.25;
+            const t50 = totalN * 0.50;
+            const t75 = totalN * 0.75;
+
+            let acc = 0, q1 = 0, med = 0, q3 = 0;
+            let f1 = false, f2 = false, f3 = false;
+
+            for (let b = 0; b <= NBUCKETS; b++) {
+                acc += buckets[b];
+                if (!f1 && acc >= t25) { q1  = b / BSCALE; f1 = true; }
+                if (!f2 && acc >= t50) { med = b / BSCALE; f2 = true; }
+                if (!f3 && acc >= t75) { q3  = b / BSCALE; f3 = true; break; }
+            }
+
+            medSums[doy]  += med;
+            q1Sums[doy]   += q1;
+            q3Sums[doy]   += q3;
+            iqrSums[doy]  += (q3 - q1);
+            dayCounts[doy]++;
+        });
+    }
+
+    /* ── finalise per-DOY averages across loaded years ──────────────────── */
+    const dayMed = new Float32Array(365).fill(NaN);
+    const dayQ1  = new Float32Array(365).fill(NaN);
+    const dayQ3  = new Float32Array(365).fill(NaN);
+    const dayIQR = new Float32Array(365).fill(NaN);
+    let maxMed = 0, maxIQR = 0;
+
+    for (let doy = 0; doy < 365; doy++) {
+        const cnt = dayCounts[doy];
+        if (cnt > 0) {
+            dayMed[doy]  = medSums[doy]  / cnt;
+            dayQ1[doy]   = q1Sums[doy]   / cnt;
+            dayQ3[doy]   = q3Sums[doy]   / cnt;
+            dayIQR[doy]  = iqrSums[doy]  / cnt;
+            if (dayMed[doy]  > maxMed)  maxMed  = dayMed[doy];
+            if (dayIQR[doy]  > maxIQR)  maxIQR  = dayIQR[doy];
+        }
+    }
+
+    /* ── push into both widgets ─────────────────────────────────────────── */
+    clockState.dayMeans = dayMed;
+    clockState.maxMean  = maxMed  > 0 ? maxMed  : 1;
+
+    iqrState.dayQ1  = dayQ1;
+    iqrState.dayQ3  = dayQ3;
+    iqrState.dayIQR = dayIQR;
+    iqrState.maxIQR = maxIQR > 0 ? maxIQR : 1;
+
+    clockRedrawBars();
+    if (iqrState.built) { iqrRedrawBars(); iqrUpdate(); }
+}
+
+/* ── Redirect the existing clock's rebuild to our combined function ───────── */
+/* clockRebuildMeans is a global function declaration; assigning here safely
+   replaces it for all future call-sites (checkboxes, timeouts, patched handlers) */
+clockRebuildMeans = rebuildAllClockStats;   // eslint-disable-line no-undef
+
+/* ── IQR bar colour helper ───────────────────────────────────────────────── */
+function iqrBarColor(val) { return IQR_COLOR_SCALE(val); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   IQR WIDGET — SVG SKELETON (called once)
+══════════════════════════════════════════════════════════════════════════ */
+function initIQRClock() {
+    const svgEl = document.getElementById('iqr-clock-svg');
+    if (!svgEl) return;
+
+    iqrState.svg = d3.select('#iqr-clock-svg');
+    const S = iqrState.svg;
+    const CX = CLOCK.CX, CY = CLOCK.CY;
+
+    /* ── interaction hit zone ───────────────────────────────────────────── */
+    S.append('circle')
+        .attr('cx', CX).attr('cy', CY)
+        .attr('r', CLOCK.R_RING + CLOCK.R_MAX_BAR + 4)
+        .attr('fill', 'transparent')
+        .attr('class', 'rc-ring-click-target')
+        .style('cursor', 'crosshair')
+        .on('click',      iqrHandleRingClick)
+        .on('mousemove',  iqrHandleRingHover)
+        .on('mouseleave', iqrHandleRingLeave);
+
+    /* ── background ring ────────────────────────────────────────────────── */
+    S.append('circle')
+        .attr('cx', CX).attr('cy', CY).attr('r', CLOCK.R_RING)
+        .attr('class', 'rc-ring-bg').attr('stroke-width', 1);
+
+    /* ── trail arc (sky blue) ───────────────────────────────────────────── */
+    const circ = 2 * Math.PI * CLOCK.R_RING;
+    iqrState.trailArc = S.append('circle')
+        .attr('cx', CX).attr('cy', CY).attr('r', CLOCK.R_RING)
+        .attr('class', 'iqr-trail-arc')
+        .attr('stroke-width', 6)
+        .attr('stroke-dasharray', `${circ} ${circ}`)
+        .attr('stroke-dashoffset', circ)
+        .attr('transform', `rotate(-90 ${CX} ${CY})`);
+
+    /* ── bar group ──────────────────────────────────────────────────────── */
+    iqrState.barGroup = S.append('g').attr('class', 'iqr-bars');
+
+    /* ── month labels (same as seasonal clock) ──────────────────────────── */
+    const lblG = S.append('g').attr('class', 'rc-month-labels');
+    CLOCK.MONTH_STARTS.forEach((startDoy, i) => {
+        const pos = polarToXY(CLOCK.R_MONTH_LBL, dayToAngle(startDoy));
+        lblG.append('text')
+            .attr('x', pos.x).attr('y', pos.y)
+            .attr('class', 'rc-month-label')
+            .text(CLOCK.MONTH_NAMES[i]);
+    });
+
+    /* ── centre readout: Q1 · IQR (large) · unit · Q3 ─────────────────── */
+    iqrState.centerQ1 = S.append('text')
+        .attr('x', CX).attr('y', CY - 22)
+        .attr('class', 'iqr-center-qval')
+        .text('Q1: —');
+
+    iqrState.centerIQR = S.append('text')
+        .attr('x', CX).attr('y', CY)
+        .attr('class', 'iqr-center-iqr-val')
+        .text('—');
+
+    S.append('text')
+        .attr('x', CX).attr('y', CY + 6)
+        .attr('class', 'rc-center-unit')
+
+    iqrState.centerQ3 = S.append('text')
+        .attr('x', CX).attr('y', CY + 19)
+        .attr('class', 'iqr-center-qval')
+        .text('Q3: —');
+
+    /* ── needle (drawn last → always on top) ────────────────────────────── */
+    iqrState.needleLine = S.append('line')
+        .attr('class', 'iqr-needle-line')
+        .attr('x1', CX).attr('y1', CY)
+        .attr('x2', CX).attr('y2', CY - CLOCK.R_RING - CLOCK.R_MAX_BAR - 2);
+
+    iqrState.needleDot = S.append('circle')
+        .attr('class', 'iqr-needle-dot').attr('r', 3)
+        .attr('cx', CX).attr('cy', CY - CLOCK.R_RING - 2);
+
+    iqrState.built = true;
+}
+
+/* ── Redraw all IQR bars (called after data changes) ────────────────────── */
+function iqrRedrawBars() {
+    if (!iqrState.built || !iqrState.barGroup) return;
+
+    const bars   = iqrState.barGroup;
+    const iqrArr = iqrState.dayIQR;
+    const maxIQR = iqrState.maxIQR;
+    const n      = CLOCK.DAYS_IN_YEAR;
+    const arcW   = (2 * Math.PI) / n;
+
+    bars.selectAll('*').remove();
+
+    for (let doy = 0; doy < n; doy++) {
+        const val     = iqrArr[doy];
+        const hasData = !isNaN(val);
+        const barH    = hasData ? (val / maxIQR) * CLOCK.R_MAX_BAR : 0;
+        const color   = hasData ? iqrBarColor(val) : 'rgba(36,56,74,0.35)';
+
+        const a0 = dayToAngle(doy)       - arcW * 0.3;
+        const a1 = dayToAngle(doy + 0.6) + arcW * 0.3;
+
+        const rIn  = CLOCK.R_RING;
+        const rOut = hasData ? rIn + Math.max(barH, 1.5) : rIn + 1;
+
+        const p1 = polarToXY(rIn,  a0);
+        const p2 = polarToXY(rOut, a0);
+        const p3 = polarToXY(rOut, a1);
+        const p4 = polarToXY(rIn,  a1);
+
+        bars.append('path')
+            .attr('d',
+                `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} ` +
+                `A ${rOut} ${rOut} 0 0 1 ${p3.x} ${p3.y} ` +
+                `L ${p4.x} ${p4.y} A ${rIn} ${rIn} 0 0 0 ${p1.x} ${p1.y}`)
+            .attr('fill', color)
+            .attr('class', 'rc-bar')
+            .attr('data-doy', doy);
+    }
+}
+
+/* ── Update needle, trail arc, and centre readout ────────────────────────── */
+function iqrUpdate() {
+    if (!iqrState.built) return;
+
+    const dateStr = state.allDates[state.currentDateIndex];
+    if (!dateStr) return;
+
+    const doy = dateToDOY(dateStr);
+    if (doy < 0) return;
+
+    /* needle */
+    const angle      = dayToAngle(doy);
+    const needleTip  = polarToXY(CLOCK.R_RING + CLOCK.R_MAX_BAR + 6, angle);
+    const needleBase = polarToXY(CLOCK.R_INNER - 6, angle);
+
+    iqrState.needleLine
+        .attr('x1', needleBase.x).attr('y1', needleBase.y)
+        .attr('x2', needleTip.x) .attr('y2', needleTip.y);
+    iqrState.needleDot
+        .attr('cx', needleTip.x).attr('cy', needleTip.y);
+
+    /* trail arc */
+    const circ = 2 * Math.PI * CLOCK.R_RING;
+    iqrState.trailArc.attr(
+        'stroke-dashoffset',
+        circ * (1 - doy / CLOCK.DAYS_IN_YEAR)
+    );
+
+    /* centre readout */
+    const q1  = iqrState.dayQ1[doy];
+    const q3  = iqrState.dayQ3[doy];
+    const iqr = iqrState.dayIQR[doy];
+
+    iqrState.centerQ1.text( isNaN(q1)  ? 'Q1: —' : `Q1: ${q1.toFixed(1)}`);
+    iqrState.centerIQR.text(isNaN(iqr) ? '—'     : iqr.toFixed(0));
+    iqrState.centerQ3.text( isNaN(q3)  ? 'Q3: —' : `Q3: ${q3.toFixed(1)}`);
+
+    /* header label */
+    const lbl = document.getElementById('iqr-doy-label');
+    if (lbl) lbl.textContent = dateStr;
+}
+
+/* ── Ring click → scrub main timeline ───────────────────────────────────── */
+function iqrHandleRingClick(event) {
+    const doy = iqrAngleFromEvent(event);
+    if (doy < 0 || !state.allDates.length) return;
+
+    let best = 0, bestDist = Infinity;
+    state.allDates.forEach((d, i) => {
+        const dist = Math.abs(dateToDOY(d) - doy);
+        if (dist < bestDist) { bestDist = dist; best = i; }
+    });
+
+    stopPlayback();
+    state.currentDateIndex = best;
+    updateDateDisplay();
+    updateMapColors();
+    iqrUpdate();
+}
+
+/* ── Ring hover → tooltip ─────────────────────────────────────────────────── */
+function iqrHandleRingHover(event) {
+    const doy = iqrAngleFromEvent(event);
+    if (doy < 0) return;
+
+    const q1  = iqrState.dayQ1[doy];
+    const q3  = iqrState.dayQ3[doy];
+    const iqr = iqrState.dayIQR[doy];
+
+    const tip   = document.getElementById('iqr-tooltip');
+    const elD   = document.getElementById('iqr-ct-date');
+    const elQ1  = document.getElementById('iqr-ct-q1');
+    const elIQR = document.getElementById('iqr-ct-iqr');
+    const elQ3  = document.getElementById('iqr-ct-q3');
+
+    if (elD)   elD.textContent   = doyToDateLabel(doy);
+    if (elQ1)  elQ1.textContent  = isNaN(q1)  ? 'Q1  —'  : `Q1   ${q1.toFixed(1)} µg/m³`;
+    if (elIQR) elIQR.textContent = isNaN(iqr) ? 'IQR  —' : `IQR  ${iqr.toFixed(1)} µg/m³`;
+    if (elQ3)  elQ3.textContent  = isNaN(q3)  ? 'Q3  —'  : `Q3   ${q3.toFixed(1)} µg/m³`;
+    if (tip)   tip.classList.add('visible');
+}
+
+function iqrHandleRingLeave() {
+    const tip = document.getElementById('iqr-tooltip');
+    if (tip) tip.classList.remove('visible');
+}
+
+/* ── Pointer event → day-of-year (mirrors clockAngleFromEvent exactly) ─────── */
+function iqrAngleFromEvent(event) {
+    const svgEl = document.getElementById('iqr-clock-svg');
+    if (!svgEl) return -1;
+
+    const rect = svgEl.getBoundingClientRect();
+    const mx   = (event.clientX - rect.left) * (CLOCK.SVG_SIZE / rect.width);
+    const my   = (event.clientY - rect.top)  * (CLOCK.SVG_SIZE / rect.height);
+    const dx   = mx - CLOCK.CX,  dy = my - CLOCK.CY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < CLOCK.R_INNER - 4 || dist > CLOCK.R_MONTH_LBL + 8) return -1;
+
+    let angle = Math.atan2(dy, dx) + Math.PI / 2;
+    if (angle < 0) angle += 2 * Math.PI;
+    return Math.round((angle / (2 * Math.PI)) * CLOCK.DAYS_IN_YEAR) % CLOCK.DAYS_IN_YEAR;
+}
+
+/* ── Info button toggle ──────────────────────────────────────────────────── */
+function setupIQRInfoBtn() {
+    const btn     = document.getElementById('iqr-info-btn');
+    const popover = document.getElementById('iqr-info-popover');
+    if (!btn || !popover) return;
+
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        popover.classList.toggle('visible');
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#iqr-clock-wrap')) popover.classList.remove('visible');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOOT HOOK
+   Uses the same MutationObserver pattern as the existing clock so iqrUpdate
+   fires automatically on every playback frame, slider drag, and step press.
+═══════════════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+
+    /* 1. Relabel the seasonal clock centre from "Avg:" → "Med:" */
+    if (clockState && clockState.centerLabel) {
+        clockState.centerLabel.text('');
+    }
+
+    /* 2. Build IQR widget skeleton */
+    initIQRClock();
+    setupIQRInfoBtn();
+
+    /* 3. Drive iqrUpdate whenever the current date text changes.
+          The same #current-date MutationObserver pattern the clock uses —
+          it fires on every frame during playback, slider drag, or step. */
+    const dateEl = document.getElementById('current-date');
+    if (dateEl) {
+        new MutationObserver(() => iqrUpdate())
+            .observe(dateEl, { characterData: true, childList: true, subtree: true });
+    }
+
+    /* 4. If year data was already loaded before this block ran, rebuild now.
+          The 3 500 ms delay lets the existing clock's 3 000 ms timeout settle
+          first, then we do one clean combined pass. */
+    setTimeout(() => {
+        /* Re-apply the median label in case initClock ran very late */
+        if (clockState && clockState.centerLabel) {
+            clockState.centerLabel.text('');
+        }
+
+        if (Object.keys(state.loadedPM25YearData).length > 0) {
+            rebuildAllClockStats();
+            iqrUpdate();
+        }
+    }, 3500);
+});
