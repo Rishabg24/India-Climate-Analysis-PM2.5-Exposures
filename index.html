@@ -4,186 +4,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>India Air Quality Analysis</title>
-
-    <!-- D3.js -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-
-    <!-- Custom CSS -->
+    <title>India PM₂.₅ Air Quality Explorer · Immersive</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap"
+        rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 
 <body>
 
-    <div id="app">
+    <!-- HERO SECTION -->
+    <section id="hero">
+        <div class="hero-atmosphere">
+            <div class="atm-haze atm-haze-1"></div>
+            <div class="atm-haze atm-haze-2"></div>
+            <div class="atm-haze atm-haze-3"></div>
+        </div>
+        <div class="hero-texture"></div>
 
-        <!-- ═══════════════════════════════════════
-             TOP NAV
-        ════════════════════════════════════════ -->
-        <nav id="top-nav">
-            <div class="nav-brand">
-                <span class="nav-title">India Climate Analysis</span>
-            </div>
-
-            <div></div><!-- centre column kept for grid alignment -->
-
-            <div class="nav-end">
-                <span class="nav-dataset-tag">Air Quality · 2013–2021</span>
-            </div>
+        <nav class="hero-nav">
+            <div class="hero-nav-brand">AIR LAB · INDIA</div>
+            <a href="#explorer" class="hero-nav-link">Launch Explorer ↓</a>
         </nav>
 
-        <div id="main-content">
-
-            <!-- ═══════════════════════════════════════
-                 LEFT PANEL — controls
-            ════════════════════════════════════════ -->
-            <aside id="controls">
-                <div class="controls-header">
-                    <h2>Climate Data Explorer</h2>
-                    <p class="subtitle">India PM2.5 Analysis 2013–2021</p>
-                </div>
-
-                <!-- ─── PM2.5 CONTROLS ─── -->
-                <div class="control-section">
-                    <h3>Select Years</h3>
-                    <div class="checkbox-grid">
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2013">
-                            <span class="checkbox-text">2013</span>
-                            <span class="year-note">Dec</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2014">
-                            <span class="checkbox-text">2014</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2015">
-                            <span class="checkbox-text">2015</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2016">
-                            <span class="checkbox-text">2016</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2017">
-                            <span class="checkbox-text">2017</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2018">
-                            <span class="checkbox-text">2018</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2019">
-                            <span class="checkbox-text">2019</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2020">
-                            <span class="checkbox-text">2020</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="pm25-year-checkbox" value="2021">
-                            <span class="checkbox-text">2021</span>
-                            <span class="year-note">Jan–Apr</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="control-section">
-                    <div class="instructions">
-                        <p>Select one or more years to load PM2.5 data. Use the slider below and your
-                            left and right arrow keys to explore daily air quality patterns, or press Play to animate.</p>
-                    </div>
-                </div>
-
-            </aside>
-
-            <!-- ═══════════════════════════════════════
-                 CENTER — map
-            ════════════════════════════════════════ -->
-            <main id="map-container">
-                <div id="map-header">
-                    <h1 id="current-map-title">PM2.5 Air Quality</h1>
-                    <p id="map-subtitle">Select years and use the slider to explore daily air quality patterns</p>
-                </div>
-                <div id="map">
-                    <!-- D3 SVG will be created here -->
-                </div>
-                <div id="loading-overlay">
-                    <div class="spinner"></div>
-                    <p class="loading-text">Loading data...</p>
-                </div>
-            </main>
-
-            <!-- ═══════════════════════════════════════
-                 RIGHT PANEL — legends
-            ════════════════════════════════════════ -->
-            <aside id="legends">
-
-                <div class="legends-header">
-                    <h3>PM2.5 Concentration</h3>
-                    <p class="legends-subhead">µg/m³ (micrograms per cubic meter)</p>
-                </div>
-
-                <div class="legend-box">
-                    <h4>PM2.5 Concentration Scale</h4>
-                    <div class="legend-gradient pm25-gradient"></div>
-                    <div class="legend-labels pm25-scale-labels">
-                        <span>0</span>
-                        <span>35</span>
-                        <span>75</span>
-                        <span>110</span>
-                        <span>150+</span>
-                    </div>
-                </div>
-
-                <div class="legend-box">
-                    <div class="who-note">
-                        <p class="who-label">WHO 2021 Guideline</p>
-                        <p class="who-value">Annual mean: <strong>5 µg/m³</strong></p>
-                        <p class="who-value">24-hr mean: <strong>15 µg/m³</strong></p>
-                    </div>
-                </div>
-
-                <!-- ─── ALWAYS VISIBLE ─── -->
-                <div class="legend-box">
-                    <h4>No Data</h4>
-                    <div class="legend-item-row">
-                        <span class="legend-color-box no-data"></span>
-                        <span class="legend-text">Missing data</span>
-                    </div>
-                </div>
-
-                <div class="legend-box">
-                    <button id="play-btn" disabled>▶ Play</button>
-                </div>
-
-                <div class="Data-loading-note">
-                    <div class="loading-note">
-                        <p>Note: Please allow up to 5 minutes for all the data to load.</p>
-                    </div>
-                </div>
-
-            </aside>
-
-        </div>
-
-        <!-- ═══════════════════════════════════════
-             BOTTOM — date slider
-        ════════════════════════════════════════ -->
-        <div id="slider-section">
-            <div id="date-display">
-                <span id="current-date">Select years to begin</span>
+        <div class="hero-body">
+            <div class="hero-text">
+                <div class="hero-eyebrow">India PM₂.₅ Air Quality Explorer · Immersive</div>
+                <h1 class="hero-headline">
+                    <span class="hl-line hl-line-1">The Air We</span>
+                    <span class="hl-line hl-line-2"><em>Breathe.</em></span>
+                </h1>
+                <div class="hero-rule"></div>
+                <p class="hero-lede">
+                    A high-resolution temporal analysis tracking particulate pollution across the Indian subcontinent.
+                    Explore nearly a decade of continuous ambient data mapped across structural regional clusters.
+                </p>
+                <a href="#explorer" class="hero-cta">
+                    Explore the Data
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </a>
             </div>
-            <div id="slider-controls">
-                <input type="range" id="date-slider" min="0" max="0" value="0" disabled>
+
+            <div class="hero-data-card">
+                <div class="data-card-header">
+                    <div class="data-card-label">Dataset Snapshot</div>
+                    <div class="data-card-title">LGHAP v2 — India Subset</div>
+                </div>
+                <div class="data-card-rows">
+                    <div class="data-card-row">
+                        <span class="dcr-label">Coverage</span>
+                        <span class="dcr-value highlight">Dec 2013 – Apr 2021</span>
+                    </div>
+                    <div class="data-card-row">
+                        <span class="dcr-label">Climate Clusters</span>
+                        <span class="dcr-value highlight">30,000+</span>
+                    </div>
+                    <div class="data-card-row">
+                        <span class="dcr-label">Total Days</span>
+                        <span class="dcr-value">2,740</span>
+                    </div>
+                    <div class="data-card-row">
+                        <span class="dcr-label">Spatial Resolution</span>
+                        <span class="dcr-value">1 km</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-    </div>
+        <div class="hero-stats-row">
+            <div class="hero-stat">
+                <span class="stat-number">0</span>
+                <span class="stat-label">Continuous Sat-Data</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <span class="stat-number">0</span>
+                <span class="stat-label">Regional Micro-Clusters</span>
+            </div>
+            <div class="hero-stat-divider"></div>
+            <div class="hero-stat">
+                <span class="stat-number">0</span>
+                <span class="stat-label">Subcontinent Coverage</span>
+            </div>
+        </div>
+    </section>
 
-    <!-- Custom JS -->
+    <!-- EXPLORER SECTION -->
+    <section id="explorer">
+        <div id="explorer-app">
+            <!-- 1. TOP TOOLBAR STRIP -->
+            <div class="toolbar-strip">
+                <div class="toolbar-left">
+                    <span class="app-title">PM₂.₅ Spatiotemporal Canvas</span>
+                    <span class="coverage-hint" id="date-range-hint">Loading archive…</span>
+                </div>
+                <div class="toolbar-controls">
+                    <!-- Year Dropdown -->
+                    <div class="tb-dropdown-wrapper">
+                        <button class="tb-btn tb-btn--dropdown" id="year-dropdown-btn" aria-expanded="false">
+                            Select years
+                            <svg class="icon-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="tb-dropdown-panel" id="year-dropdown-panel">
+                            <div class="panel-actions">
+                                <button class="text-btn" id="year-select-all">All</button>
+                                <button class="text-btn" id="year-clear-all">None</button>
+                            </div>
+                            <div class="checkbox-grid">
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2013"
+                                        checked> 2013 <span class="tb-year-note">(Dec only)</span></label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2014">
+                                    2014</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2015">
+                                    2015</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2016">
+                                    2016</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2017">
+                                    2017</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2018">
+                                    2018</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2019">
+                                    2019</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2020">
+                                    2020</label>
+                                <label class="cb-label"><input type="checkbox" class="pm25-year-checkbox" value="2021">
+                                    2021 <span class="tb-year-note">(Jan–Apr)</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Speed Dropdown -->
+                    <div class="tb-dropdown-wrapper">
+                        <button class="tb-btn tb-btn--dropdown" id="speed-dropdown-btn" aria-expanded="false">
+                            Speed <span class="tb-value-badge" id="speed-display">6 fps</span>
+                            <svg class="icon-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="tb-dropdown-panel speed-panel" id="speed-dropdown-panel">
+                            <div class="slider-pop-header">Playback speed</div>
+                            <input type="range" id="fps-slider" min="1" max="12" value="6">
+                            <div class="slider-pop-val"><span id="fps-value">6</span> fps</div>
+                        </div>
+                    </div>
+
+                    <!-- Play Button -->
+                    <button class="tb-btn tb-btn--primary" id="play-btn" disabled>
+                        <svg id="play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <svg id="pause-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"
+                            style="display:none;">
+                            <rect x="6" y="4" width="4" height="16"></rect>
+                            <rect x="14" y="4" width="4" height="16"></rect>
+                        </svg>
+                        <span id="play-btn-label">Play</span>
+                    </button>
+
+                    <!-- Loading Indicator -->
+                    <div class="inline-loader" id="loading-overlay">
+                        <div class="spinner-core"></div>
+                        <span>Loading data…</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. MAP AREA -->
+            <div class="map-viewport">
+                <div id="map"></div>
+
+                <!-- Floating Date Badge -->
+                <div class="floating-badge-stamp">
+                    <div class="badge-time-text" id="badge-date-display">—</div>
+                    <div class="badge-sub-label">Subcontinental Mapping Profile</div>
+                </div>
+
+                <!-- Floating Legend -->
+                <div class="floating-legend-island">
+                    <div class="legend-header">PM₂.₅ Concentration <span class="legend-unit">(µg/m³)</span></div>
+                    <div class="legend-gradient-wrapper">
+                        <div class="pm25-gradient-bar"></div>
+                        <div class="legend-axis-labels">
+                            <span>2</span>
+                            <span>5</span>
+                            <span>15</span>
+                            <span>60</span>
+                            <span>100</span>
+                            <span>150+</span>
+                        </div>
+                    </div>
+                    <div class="legend-footer-swatch">
+                        <div class="swatch-null"></div>
+                        <span class="swatch-label">Insufficient / No Return Data</span>
+                    </div>
+                </div>
+
+                <!-- Radial Seasonal Clock -->
+                <div class="radial-clock-island" id="radial-clock-wrap">
+
+                    <!-- Info button -->
+                    <button class="clock-info-btn" id="clock-info-btn" aria-label="About this chart">
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                            <circle cx="6.5" cy="6.5" r="5.75" stroke="currentColor" stroke-width="1.2" />
+                            <path d="M6.5 5.8v3.9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                            <circle cx="6.5" cy="4.1" r="0.7" fill="currentColor" />
+                        </svg>
+                    </button>
+
+                    <!-- Info popover -->
+                    <div class="clock-info-popover" id="clock-info-popover" role="tooltip" aria-hidden="true">
+                        <div class="cip-title">Seasonal Pollution Rhythm</div>
+                        <p class="cip-body">
+                            A full year (Jan → Dec) arranged in a ring. Each thin bar represents one
+                            calendar day; bar height and color encode the spatial mean PM₂.₅
+                            across all loaded clusters for that day-of-year (averaged across
+                            multiple years if several are selected).
+                        </p>
+                        <ul class="cip-list">
+                            <li><span class="cip-dot" style="background:var(--amber)"></span>Needle = current playback
+                                date</li>
+                            <li><span class="cip-dot" style="background:rgba(212,168,83,0.25)"></span>Filled arc =
+                                elapsed days this year</li>
+                            <li><span class="cip-dot" style="background:#94D651"></span>Green bars = low PM₂.₅</li>
+                            <li><span class="cip-dot" style="background:#E63917"></span>Red bars = high PM₂.₅</li>
+                        </ul>
+                        <p class="cip-note">Hover for daily values.</p>
+                    </div>
+
+                    <!-- Header -->
+                    <div class="clock-header">
+                        <span class="clock-title">Daily Average</span>
+                        <span class="clock-subtitle" id="clock-doy-label">—</span>
+                    </div>
+
+                    <!-- SVG canvas -->
+                    <div class="clock-canvas-wrap">
+                        <svg id="radial-clock-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg"
+                            aria-label="Seasonal PM2.5 radial chart">
+                            <!-- Rendered entirely by JS -->
+                        </svg>
+                    </div>
+
+                    <!-- Tooltip -->
+                    <div class="clock-tooltip" id="clock-tooltip" aria-hidden="true">
+                        <span class="ct-date" id="ct-date">—</span>
+                        <span class="ct-val" id="ct-val">—</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 3. FULL WIDTH TIMELINE TRAY -->
+            <div class="timeline-tray">
+                <div class="timeline-metadata">
+                    <div class="timestamp-readout" id="current-date">Select structural years above to initialize</div>
+                </div>
+                <div class="timeline-slider-wrapper">
+                    <input type="range" id="date-slider" min="0" max="0" value="0" disabled>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER CITATION -->
+    <footer id="citation-footer">
+        <div class="citation-container">
+            <div class="citation-label">Data Resource Pipeline Citation</div>
+            <p class="citation-text">
+                Wei, J., Li, Z., Guo, J., Sun, L., and Cribb, M.: Quality control validation loops of ground-level daily
+                PM2.5 tracking arrays across India derived via big Earth data analytics,
+                <em>Earth Syst. Sci. Data</em>, 16, 2425–2448,
+                <a href="https://doi.org/10.5194/essd-16-2425-2024" target="_blank"
+                    rel="noopener">https://doi.org/10.5194/essd-16-2425-2024</a>, 2024.
+            </p>
+        </div>
+    </footer>
+
     <script src="script.js"></script>
-
 </body>
 
 </html>
